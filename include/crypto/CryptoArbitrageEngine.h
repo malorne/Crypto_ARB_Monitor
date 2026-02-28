@@ -49,3 +49,21 @@ public:
         const std::vector<CryptoOpportunity>& opps) const = 0;
 };
 
+class CryptoArbitrageEngine : public IArbitrageEngine {
+public:
+    std::vector<CryptoQuote> load_quotes_csv(
+        const std::string& path,
+        const std::unordered_map<std::string, double>& fee_overrides,
+        double default_fee_bps) const override;
+
+    std::vector<CryptoOpportunity> find_opportunities(
+        const std::vector<CryptoQuote>& quotes,
+        const CryptoMonitorConfig& cfg) const override;
+
+    void write_opportunities_csv(
+        const std::string& path,
+        const std::string& observed_at,
+        const std::vector<CryptoOpportunity>& opps) const override;
+};
+
+} // namespace am
