@@ -131,3 +131,25 @@ std::vector<CryptoOpportunity> CryptoArbitrageEngine::find_opportunities(
     return out;
 }
 
+void CryptoArbitrageEngine::write_opportunities_csv(
+    const std::string& path,
+    const std::string& observed_at,
+    const std::vector<CryptoOpportunity>& opps) const
+{
+    std::ofstream out(path);
+    if (!out) throw CsvError("Cannot write output CSV: " + path);
+    out << "observed_at,symbol,buy_exchange,sell_exchange,"
+           "buy_ask,sell_bid,gross_spread,net_spread,net_pct\n";
+    for (const auto& o : opps)
+        out << observed_at     << ","
+            << o.symbol        << ","
+            << o.buy_exchange  << ","
+            << o.sell_exchange << ","
+            << o.buy_ask       << ","
+            << o.sell_bid      << ","
+            << o.gross_spread  << ","
+            << o.net_spread    << ","
+            << o.net_pct       << "\n";
+}
+
+} // namespace am
