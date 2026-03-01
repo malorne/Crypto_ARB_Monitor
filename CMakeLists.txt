@@ -17,3 +17,15 @@ target_compile_features(am_core PUBLIC cxx_std_23)
 # ── CLI executable ────────────────────────────────────────────────────────────
 add_executable(arbitrage_monitor src/main.cpp)
 target_link_libraries(arbitrage_monitor PRIVATE am_core)
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+if(AM_BUILD_TESTS)
+    add_subdirectory(external/googletest)
+    enable_testing()
+    add_executable(am_tests
+        tests/test_config_manager.cpp
+    )
+    target_link_libraries(am_tests PRIVATE am_core gtest_main)
+    target_include_directories(am_tests PRIVATE include)
+    add_test(NAME am_tests COMMAND am_tests)
+endif()
