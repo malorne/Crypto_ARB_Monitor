@@ -35,3 +35,5 @@ private:
 };
 
 } // namespace am
+
+// Forward: TradingViewRowCandidate — реализация в следующем коммите

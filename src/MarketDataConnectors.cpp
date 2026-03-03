@@ -108,3 +108,5 @@ std::vector<CryptoQuote> MarketDataConnectors::fetch_btcusd_quotes(
 }
 
 } // namespace am
+
+// stub — TradingView pipeline появится в следующем коммите
