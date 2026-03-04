@@ -47,6 +47,12 @@ public:
         const std::string& path,
         const std::string& observed_at,
         const std::vector<CryptoOpportunity>& opps) const = 0;
+
+    virtual void reset_opportunities_csv(const std::string& path) const = 0;
+    virtual void append_opportunities_csv(
+        const std::string& path,
+        const std::string& observed_at,
+        const std::vector<CryptoOpportunity>& opps) const = 0;
 };
 
 class CryptoArbitrageEngine : public IArbitrageEngine {
@@ -61,6 +67,12 @@ public:
         const CryptoMonitorConfig& cfg) const override;
 
     void write_opportunities_csv(
+        const std::string& path,
+        const std::string& observed_at,
+        const std::vector<CryptoOpportunity>& opps) const override;
+
+    void reset_opportunities_csv(const std::string& path) const override;
+    void append_opportunities_csv(
         const std::string& path,
         const std::string& observed_at,
         const std::vector<CryptoOpportunity>& opps) const override;
