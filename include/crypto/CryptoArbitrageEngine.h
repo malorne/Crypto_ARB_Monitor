@@ -53,6 +53,13 @@ public:
         const std::string& path,
         const std::string& observed_at,
         const std::vector<CryptoOpportunity>& opps) const = 0;
+
+    virtual void reset_profit_csv(const std::string& path) const = 0;
+    virtual double append_profit_csv(
+        const std::string& path,
+        const std::string& observed_at,
+        double capital_before,
+        const std::vector<CryptoOpportunity>& opps) const = 0;
 };
 
 class CryptoArbitrageEngine : public IArbitrageEngine {
@@ -75,6 +82,13 @@ public:
     void append_opportunities_csv(
         const std::string& path,
         const std::string& observed_at,
+        const std::vector<CryptoOpportunity>& opps) const override;
+
+    void reset_profit_csv(const std::string& path) const override;
+    double append_profit_csv(
+        const std::string& path,
+        const std::string& observed_at,
+        double capital_before,
         const std::vector<CryptoOpportunity>& opps) const override;
 };
 

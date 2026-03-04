@@ -181,3 +181,38 @@ void CryptoArbitrageEngine::append_opportunities_csv(
             << o.net_spread    << ","
             << o.net_pct       << "\n";
 }
+
+void CryptoArbitrageEngine::reset_profit_csv(const std::string& path) const {
+    std::ofstream out(path);
+    if (!out) throw CsvError("Cannot reset profit CSV: " + path);
+    out << "observed_at,symbol,buy_exchange,sell_exchange,"
+           "net_pct,capital_before,estimated_profit,capital_after\n";
+}
+
+double CryptoArbitrageEngine::append_profit_csv(
+    const std::string& path,
+    const std::string& observed_at,
+    double capital_before,
+    const std::vector<CryptoOpportunity>& opps) const
+{
+    if (opps.empty()) return capital_before;
+    const auto best_it = std::max_element(opps.begin(), opps.end(),
+        [](const CryptoOpportunity& a, const CryptoOpportunity& b){
+            return a.net_pct < b.net_pct;
+        });
+    const auto& best       = *best_it;
+    const double profit    = capital_before * best.net_pct;
+    const double cap_after = capital_before + profit;
+
+    std::ofstream out(path, std::ios::app);
+    if (!out) throw CsvError("Cannot append to profit CSV: " + path);
+    out << observed_at        << ","
+        << best.symbol        << ","
+        << best.buy_exchange  << ","
+        << best.sell_exchange << ","
+        << best.net_pct       << ","
+        << capital_before     << ","
+        << profit             << ","
+        << cap_after          << "\n";
+    return cap_after;
+}
