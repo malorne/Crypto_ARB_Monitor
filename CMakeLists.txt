@@ -33,3 +33,13 @@ if(AM_BUILD_TESTS)
     target_include_directories(am_tests PRIVATE include)
     add_test(NAME am_tests COMMAND am_tests)
 endif()
+
+# ── CLI e2e tests ─────────────────────────────────────────────────────────────
+if(AM_BUILD_TESTS)
+    add_test(
+        NAME cli_e2e
+        COMMAND ${CMAKE_COMMAND}
+            -DMONITOR_BIN=$<TARGET_FILE:arbitrage_monitor>
+            -P "${CMAKE_SOURCE_DIR}/tests/run_cli_e2e.cmake"
+    )
+endif()
