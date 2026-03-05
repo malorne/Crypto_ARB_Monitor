@@ -96,9 +96,14 @@ int main(int argc, char* argv[]) {
 
     std::string config_path = "config/app.conf";
     int interval_override   = -1;
-    for (int i = 2; i + 1 < argc; ++i) {
-        if (std::string(argv[i]) == "--config")       config_path       = argv[i + 1];
-        if (std::string(argv[i]) == "--interval-sec") interval_override = std::stoi(argv[i + 1]);
+    for (int i = 2; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--config" && i + 1 < argc)        { config_path       = argv[++i]; }
+        else if (arg == "--interval-sec" && i+1<argc)  { interval_override = std::stoi(argv[++i]); }
+        else if (arg == "--online-crypto" && i+1<argc) { ++i; }
+        else if (arg.rfind("--", 0) == 0) {
+            throw am::ConfigError("Unknown CLI option: " + arg);
+        }
     }
 
     try {
