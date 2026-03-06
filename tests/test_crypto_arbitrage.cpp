@@ -46,3 +46,12 @@ TEST(CryptoArbitrage, DoesNotMixDifferentSymbols) {
     am::CryptoMonitorConfig cfg; cfg.symbol_filter = "BTCUSD";
     EXPECT_TRUE(eng.find_opportunities(quotes, cfg).empty());
 }
+
+TEST(CryptoArbitrage, ThrowsOnBadTimestamp) {
+    am::CryptoArbitrageEngine engine;
+    std::vector<am::CryptoOpportunity> opps(1);
+    auto path = (std::filesystem::temp_directory_path() / "out.csv").string();
+    EXPECT_THROW(
+        engine.write_opportunities_csv(path, "bad-timestamp", opps),
+        am::DataValidationError);
+}

@@ -136,6 +136,8 @@ void CryptoArbitrageEngine::write_opportunities_csv(
     const std::string& observed_at,
     const std::vector<CryptoOpportunity>& opps) const
 {
+    if (!opps.empty() && !is_utc_iso8601_timestamp(observed_at))
+        throw DataValidationError("observed_at must be UTC ISO 8601: YYYY-MM-DDTHH:MM:SSZ");
     std::ofstream out(path);
     if (!out) throw CsvError("Cannot write output CSV: " + path);
     out << "observed_at,symbol,buy_exchange,sell_exchange,"
@@ -216,3 +218,14 @@ double CryptoArbitrageEngine::append_profit_csv(
         << cap_after          << "\n";
     return cap_after;
 }
+
+namespace {
+static bool is_utc_iso8601_timestamp(const std::string& ts) {
+    if (ts.size() != 20) return false;
+    if (ts[4]!='-'||ts[7]!='-'||ts[10]!='T'||ts[13]!=':'||ts[16]!=':'||ts[19]!='Z')
+        return false;
+    for (size_t i : {0,1,2,3,5,6,8,9,11,12,14,15,17,18})
+        if (!std::isdigit((unsigned char)ts[i])) return false;
+    return true;
+}
+} // namespace
