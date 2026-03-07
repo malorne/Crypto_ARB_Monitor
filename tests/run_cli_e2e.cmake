@@ -7,12 +7,15 @@ endif()
 set(TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/e2e_tmp")
 file(MAKE_DIRECTORY "${TMP_DIR}")
 
+# buy BINANCE ask=1000.00 fee=8bps  -> buy_cost=1000.80
+# sell KRAKEN bid=1010.00 fee=8bps  -> sell_gain=1009.19
+# net = +8.39 > 0  -> opportunity exists
 set(QUOTES_FILE "${TMP_DIR}/quotes.csv")
 file(WRITE "${QUOTES_FILE}"
 "exchange,symbol,bid,ask,fee_bps\n"
-"BINANCE,XTZUSD,1.1050,1.1060,8.0\n"
-"KRAKEN,XTZUSD,1.1075,1.1085,12.0\n"
-"BITSTAMP,XTZUSD,1.1068,1.1078,10.0\n"
+"BINANCE,BTCUSD,999.00,1000.00,8.0\n"
+"KRAKEN,BTCUSD,1010.00,1011.00,8.0\n"
+"BITSTAMP,BTCUSD,1005.00,1006.00,10.0\n"
 )
 
 set(OUT_FILE    "${TMP_DIR}/opportunities.csv")
@@ -41,7 +44,7 @@ endif()
 
 # Portable regex без {n} квантификаторов (совместимость с CMake < 3.9)
 string(REGEX MATCH
-    "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z,XTZUSD,"
+    "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z,BTCUSD,"
     has_timestamp_and_symbol
     "${out_csv}"
 )
