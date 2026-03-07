@@ -41,6 +41,9 @@ protected:
     std::string http_get(const std::string&) const override {
         return injected_response;
     }
+    std::string http_post(const std::string&, const std::string&) const override {
+        return injected_response;
+    }
 };
 
 TEST(OnlineConnectors, FetchBtcusdQuotesFromInjectedHttp) {
