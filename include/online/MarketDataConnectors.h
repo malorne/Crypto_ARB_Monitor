@@ -28,7 +28,7 @@ public:
         const std::vector<std::string>& allowed_exchanges) const = 0;
 };
 
-class MarketDataConnectors final : public IMarketDataConnectors {
+class MarketDataConnectors : public IMarketDataConnectors {
 public:
     static std::optional<std::pair<double,double>>
         parse_binance_book_ticker(const std::string& json);
