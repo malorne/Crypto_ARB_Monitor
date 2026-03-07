@@ -11,6 +11,15 @@ namespace am {
 
 namespace {
 
+static bool is_utc_iso8601_timestamp(const std::string& ts) {
+    if (ts.size() != 20) return false;
+    if (ts[4]!='-'||ts[7]!='-'||ts[10]!='T'||ts[13]!=':'||ts[16]!=':'||ts[19]!='Z')
+        return false;
+    for (size_t i : {0,1,2,3,5,6,8,9,11,12,14,15,17,18})
+        if (!std::isdigit((unsigned char)ts[i])) return false;
+    return true;
+}
+
 static char detect_delimiter(const std::string& header) {
     if (header.find('\t') != std::string::npos) return '\t';
     return ',';
@@ -137,7 +146,8 @@ void CryptoArbitrageEngine::write_opportunities_csv(
     const std::vector<CryptoOpportunity>& opps) const
 {
     if (!opps.empty() && !is_utc_iso8601_timestamp(observed_at))
-        throw DataValidationError("observed_at must be UTC ISO 8601: YYYY-MM-DDTHH:MM:SSZ");
+        throw DataValidationError(
+            "observed_at must be UTC ISO 8601: YYYY-MM-DDTHH:MM:SSZ");
     std::ofstream out(path);
     if (!out) throw CsvError("Cannot write output CSV: " + path);
     out << "observed_at,symbol,buy_exchange,sell_exchange,"
@@ -153,8 +163,6 @@ void CryptoArbitrageEngine::write_opportunities_csv(
             << o.net_spread    << ","
             << o.net_pct       << "\n";
 }
-
-} // namespace am
 
 void CryptoArbitrageEngine::reset_opportunities_csv(
     const std::string& path) const
@@ -202,7 +210,7 @@ double CryptoArbitrageEngine::append_profit_csv(
         [](const CryptoOpportunity& a, const CryptoOpportunity& b){
             return a.net_pct < b.net_pct;
         });
-    const auto& best       = *best_it;
+    const auto& best   = *best_it;
     const double profit    = capital_before * best.net_pct;
     const double cap_after = capital_before + profit;
 
@@ -219,13 +227,4 @@ double CryptoArbitrageEngine::append_profit_csv(
     return cap_after;
 }
 
-namespace {
-static bool is_utc_iso8601_timestamp(const std::string& ts) {
-    if (ts.size() != 20) return false;
-    if (ts[4]!='-'||ts[7]!='-'||ts[10]!='T'||ts[13]!=':'||ts[16]!=':'||ts[19]!='Z')
-        return false;
-    for (size_t i : {0,1,2,3,5,6,8,9,11,12,14,15,17,18})
-        if (!std::isdigit((unsigned char)ts[i])) return false;
-    return true;
-}
-} // namespace
+} // namespace am
