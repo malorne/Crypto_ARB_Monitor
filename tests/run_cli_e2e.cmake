@@ -40,7 +40,7 @@ if(has_header EQUAL -1)
     message(FATAL_ERROR "Missing CSV header in output:\n${out_csv}")
 endif()
 
-# Portable regex без {n} квантификаторов
+# Portable regex без {n} квантификаторов (совместимость с CMake < 3.9)
 string(REGEX MATCH
     "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z,XTZUSD,"
     has_timestamp_and_symbol
