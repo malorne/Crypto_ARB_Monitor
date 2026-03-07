@@ -25,7 +25,7 @@ struct CryptoOpportunity {
 };
 
 struct CryptoMonitorConfig {
-    std::string symbol_filter = "BTCUSD";
+    std::string symbol_filter = "";
     double min_net_spread     = 0.0;
     double min_net_pct        = 0.0;
 };
