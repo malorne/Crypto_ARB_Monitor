@@ -1,12 +1,17 @@
 #pragma once
-#include "crypto/CryptoArbitrageEngine.h"
+
+#include <functional>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
+
+#include "crypto/CryptoArbitrageEngine.h"
 
 namespace am {
 
+// Intermediate representation for partially available TradingView rows.
 struct TradingViewRowCandidate {
     std::string exchange;
     std::string symbol;
@@ -18,53 +23,60 @@ struct TradingViewRowCandidate {
 class IMarketDataConnectors {
 public:
     virtual ~IMarketDataConnectors() = default;
+
     virtual std::vector<CryptoQuote> fetch_btcusd_quotes(
         const std::unordered_map<std::string, double>& per_exchange_fee_bps,
         double default_fee_bps) const = 0;
     virtual std::vector<CryptoQuote> fetch_tradingview_quotes(
         const std::unordered_map<std::string, double>& per_exchange_fee_bps,
         double default_fee_bps,
-        const std::vector<std::string>& requested_symbols,
-        const std::vector<std::string>& allowed_exchanges) const = 0;
+        const std::vector<std::string>& symbols,
+        const std::unordered_set<std::string>& allowed_exchanges) const = 0;
 };
 
-class MarketDataConnectors : public IMarketDataConnectors {
+class MarketDataConnectors final : public IMarketDataConnectors {
 public:
-    static std::optional<std::pair<double,double>>
-        parse_binance_book_ticker(const std::string& json);
-    static std::optional<std::pair<double,double>>
-        parse_kraken_ticker(const std::string& json);
-    static std::optional<std::pair<double,double>>
-        parse_bitstamp_ticker(const std::string& json);
+    using HttpGetFn = std::function<std::string(const std::string&)>;
+    using HttpPostJsonFn = std::function<std::string(const std::string&, const std::string&)>;
 
-    static std::vector<TradingViewRowCandidate>
-        parse_tradingview_scan_rows(const std::string& json);
+    // Default constructor uses real HTTP via curl shell commands.
+    MarketDataConnectors();
+    // Test constructor: inject deterministic HTTP handlers (no real network required).
+    explicit MarketDataConnectors(HttpGetFn http_get_fn, HttpPostJsonFn http_post_json_fn);
 
+    // API payload parsers (unit-testable, no network).
+    static std::optional<std::pair<double, double>> parse_binance_book_ticker(const std::string& json);
+    static std::optional<std::pair<double, double>> parse_kraken_ticker(const std::string& json);
+    static std::optional<std::pair<double, double>> parse_bitstamp_ticker(const std::string& json);
+
+    // TradingView merge/fallback helper (unit-testable, no network).
     static std::vector<CryptoQuote> build_tradingview_quotes(
         const std::vector<TradingViewRowCandidate>& rows,
         const std::unordered_map<std::string, double>& per_exchange_fee_bps,
         double default_fee_bps,
-        const std::vector<std::string>& requested_symbols,
-        const std::vector<std::string>& allowed_exchanges);
+        const std::vector<std::string>& symbols,
+        const std::unordered_set<std::string>& allowed_exchanges);
 
+    // Online fetchers.
     std::vector<CryptoQuote> fetch_btcusd_quotes(
         const std::unordered_map<std::string, double>& per_exchange_fee_bps,
         double default_fee_bps) const override;
-
     std::vector<CryptoQuote> fetch_tradingview_quotes(
         const std::unordered_map<std::string, double>& per_exchange_fee_bps,
         double default_fee_bps,
-        const std::vector<std::string>& requested_symbols,
-        const std::vector<std::string>& allowed_exchanges) const override;
+        const std::vector<std::string>& symbols,
+        const std::unordered_set<std::string>& allowed_exchanges) const override;
 
-protected:
-    virtual std::string http_get(const std::string& url) const;
-    virtual std::string http_post(const std::string& url,
-                                  const std::string& body) const;
 private:
+    static std::string shell_escape_single_quotes(const std::string& s);
+    static std::optional<double> extract_json_number_field(const std::string& json, const std::string& field);
+    static std::string curl_http_post_json(const std::string& url, const std::string& json_body);
     static std::string curl_http_get(const std::string& url);
-    static std::string curl_http_post(const std::string& url,
-                                      const std::string& body);
+    std::string http_post_json(const std::string& url, const std::string& json_body) const;
+    std::string http_get(const std::string& url) const;
+
+    HttpGetFn http_get_fn_;
+    HttpPostJsonFn http_post_json_fn_;
 };
 
 } // namespace am
