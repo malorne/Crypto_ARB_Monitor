@@ -4,6 +4,7 @@
 
 namespace am {
 
+// Domain exception hierarchy keeps CLI error handling explicit and readable.
 class AmException : public std::runtime_error {
 public:
     explicit AmException(const std::string& msg) : std::runtime_error(msg) {}
@@ -11,22 +12,22 @@ public:
 
 class ConfigError : public AmException {
 public:
-    explicit ConfigError(const std::string& msg) : AmException(msg) {}
+    explicit ConfigError(const std::string& msg) : AmException("ConfigError: " + msg) {}
 };
 
 class CsvError : public AmException {
 public:
-    explicit CsvError(const std::string& msg) : AmException(msg) {}
+    explicit CsvError(const std::string& msg) : AmException("CsvError: " + msg) {}
 };
 
 class DataValidationError : public AmException {
 public:
-    explicit DataValidationError(const std::string& msg) : AmException(msg) {}
+    explicit DataValidationError(const std::string& msg) : AmException("DataValidationError: " + msg) {}
 };
 
 class CalculationError : public AmException {
 public:
-    explicit CalculationError(const std::string& msg) : AmException(msg) {}
+    explicit CalculationError(const std::string& msg) : AmException("CalculationError: " + msg) {}
 };
 
 } // namespace am
