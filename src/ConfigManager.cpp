@@ -1,25 +1,32 @@
 #include "config/ConfigManager.h"
-#include "exceptions/Exceptions.h"
-#include "common/StringUtils.h"
 
 #include <fstream>
+
+#include "common/StringUtils.h"
+#include "exceptions/Exceptions.h"
 
 namespace am {
 
 ConfigManager::ConfigManager(std::string path) : path_(std::move(path)) {}
 
 void ConfigManager::load() {
+    // Fail fast with a domain-specific exception so CLI can return stable error codes.
     std::ifstream in(path_);
-    if (!in) throw ConfigError("Cannot open config: " + path_);
+    if (!in) throw ConfigError("Cannot open: " + path_);
+
+    kv_.clear();
     std::string line;
     while (std::getline(in, line)) {
+        // Accept relaxed config style: whitespace and comments are ignored.
         line = str::trim_copy(line);
         if (line.empty() || line[0] == '#') continue;
-        const auto eq = line.find('=');
-        if (eq == std::string::npos) continue;
-        auto key = str::trim_copy(line.substr(0, eq));
-        auto val = str::trim_copy(line.substr(eq + 1));
-        if (!key.empty()) kv_[key] = val;
+
+        auto pos = line.find('=');
+        if (pos == std::string::npos) continue;
+
+        std::string key = str::trim_copy(line.substr(0, pos));
+        std::string val = str::trim_copy(line.substr(pos + 1));
+        kv_[key] = val;
     }
 }
 
@@ -32,14 +39,19 @@ std::optional<std::string> ConfigManager::get_string(const std::string& key) con
 std::optional<double> ConfigManager::get_double(const std::string& key) const {
     auto s = get_string(key);
     if (!s) return std::nullopt;
-    try { return std::stod(*s); }
-    catch (...) { throw ConfigError("Bad double for key: " + key); }
+    try {
+        return std::stod(*s);
+    } catch (...) {
+        // Typed access is strict: malformed values are configuration errors.
+        throw ConfigError("Bad double for key: " + key);
+    }
 }
 
 std::optional<bool> ConfigManager::get_bool(const std::string& key) const {
     auto s = get_string(key);
     if (!s) return std::nullopt;
-    if (*s == "true"  || *s == "1") return true;
+
+    if (*s == "true" || *s == "1") return true;
     if (*s == "false" || *s == "0") return false;
     throw ConfigError("Bad bool for key: " + key);
 }
