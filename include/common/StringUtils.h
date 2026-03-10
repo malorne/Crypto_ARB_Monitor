@@ -1,27 +1,25 @@
 #pragma once
-#include <algorithm>
+
 #include <cctype>
 #include <string>
+#include <utility>
 
 namespace am::str {
 
+// Trim both ends; utility is intentionally copy-based for call-site simplicity.
 inline std::string trim_copy(std::string s) {
-    s.erase(s.begin(),
-        std::find_if(s.begin(), s.end(),
-            [](unsigned char c){ return !std::isspace(c); }));
-    s.erase(
-        std::find_if(s.rbegin(), s.rend(),
-            [](unsigned char c){ return !std::isspace(c); }).base(),
-        s.end());
+    while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front()))) s.erase(s.begin());
+    while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back()))) s.pop_back();
     return s;
 }
 
+// Uppercase copy for case-insensitive keys/symbols normalization.
 inline std::string upper_copy(std::string s) {
-    std::transform(s.begin(), s.end(), s.begin(),
-        [](unsigned char c){ return std::toupper(c); });
+    for (char& ch : s) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
     return s;
 }
 
+// Common helper used by config/CSV ingestion where both operations are needed.
 inline std::string upper_trim_copy(std::string s) {
     return upper_copy(trim_copy(std::move(s)));
 }
