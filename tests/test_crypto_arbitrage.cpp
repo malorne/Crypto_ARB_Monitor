@@ -1,65 +1,140 @@
 #include <gtest/gtest.h>
+
+#include <cstdio>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+
 #include "crypto/CryptoArbitrageEngine.h"
 #include "exceptions/Exceptions.h"
-#include <fstream>
-#include <filesystem>
 
-namespace fs = std::filesystem;
+namespace {
 
-static std::string tmp_csv(const std::string& body) {
-    auto p = fs::temp_directory_path() / "am_quotes_test.csv";
-    std::ofstream f(p); f << body;
-    return p.string();
+// Local file helpers keep tests independent from repository fixtures.
+std::string write_temp_csv(const std::string& name, const std::string& body) {
+    const std::string path = "tmp_" + name + ".csv";
+    std::ofstream out(path, std::ios::binary);
+    out << body;
+    out.close();
+    return path;
 }
 
-// BINANCE ask=1000.00 fee=8bps  -> buy_cost=1000.80
-// KRAKEN  bid=1010.00 fee=8bps  -> sell_gain=1009.19
-// net = +8.39 > 0
+std::string read_file(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    return ss.str();
+}
+
+} // namespace
+
 TEST(CryptoArbitrage, FindsNetPositiveOpportunityAfterFees) {
-    auto p = tmp_csv(
+    // Baseline scenario where spread remains positive after fee adjustment.
+    const std::string qpath = write_temp_csv(
+        "crypto_quotes_good",
         "exchange,symbol,bid,ask,fee_bps\n"
-        "BINANCE,BTCUSD,999.00,1000.00,8.0\n"
-        "KRAKEN,BTCUSD,1010.00,1011.00,8.0\n");
-    am::CryptoArbitrageEngine eng;
-    auto quotes = eng.load_quotes_csv(p, {}, 10.0);
+        "BINANCE,BTCUSD,99.8,100.0,5\n"
+        "KRAKEN,BTCUSD,101.2,101.3,5\n");
+
+    am::CryptoArbitrageEngine engine;
+    const auto quotes = engine.load_quotes_csv(qpath, {}, 10.0);
+    std::remove(qpath.c_str());
+
     am::CryptoMonitorConfig cfg;
-    auto opps = eng.find_opportunities(quotes, cfg);
-    EXPECT_FALSE(opps.empty());
-    EXPECT_GT(opps.front().net_spread, 0.0);
+    cfg.symbol_filter = "BTCUSD";
+    cfg.min_net_spread = 0.0;
+    cfg.min_net_pct = 0.0;
+    auto opps = engine.find_opportunities(quotes, cfg);
+
+    EXPECT_EQ(opps.empty(), false);
+    EXPECT_EQ(opps[0].net_spread > 0.0, true);
 }
 
-// fee=500bps (5%) сделает арбитраж убыточным
-// BINANCE ask=1000.00 fee=500bps -> buy_cost=1050.00
-// KRAKEN  bid=1010.00 fee=500bps -> sell_gain=959.50
-// net = 959.50 - 1050.00 = -90.50 < 0
 TEST(CryptoArbitrage, HighFeesRemoveFakeOpportunity) {
-    auto p = tmp_csv(
+    // Regression guard: gross spread alone must not create an opportunity.
+    const std::string qpath = write_temp_csv(
+        "crypto_quotes_bad",
         "exchange,symbol,bid,ask,fee_bps\n"
-        "BINANCE,BTCUSD,999.00,1000.00,500.0\n"
-        "KRAKEN,BTCUSD,1010.00,1011.00,500.0\n");
-    am::CryptoArbitrageEngine eng;
-    auto quotes = eng.load_quotes_csv(p, {}, 10.0);
+        "BINANCE,BTCUSD,99.95,100.0,30\n"
+        "KRAKEN,BTCUSD,100.05,100.1,30\n");
+
+    am::CryptoArbitrageEngine engine;
+    const auto quotes = engine.load_quotes_csv(qpath, {}, 10.0);
+    std::remove(qpath.c_str());
+
     am::CryptoMonitorConfig cfg;
-    EXPECT_TRUE(eng.find_opportunities(quotes, cfg).empty());
+    cfg.symbol_filter = "BTCUSD";
+    auto opps = engine.find_opportunities(quotes, cfg);
+
+    EXPECT_EQ(opps.size(), 0u);
 }
 
 TEST(CryptoArbitrage, DoesNotMixDifferentSymbols) {
-    auto p = tmp_csv(
+    // Business invariant: buy/sell legs must be for the same symbol.
+    const std::string qpath = write_temp_csv(
+        "crypto_quotes_multi_symbol",
         "exchange,symbol,bid,ask,fee_bps\n"
-        "BINANCE,BTCUSD,999.00,1000.00,8.0\n"
-        "KRAKEN,ETHUSD,1010.00,1011.00,8.0\n");
-    am::CryptoArbitrageEngine eng;
-    auto quotes = eng.load_quotes_csv(p, {}, 10.0);
+        "BINANCE,XTZUSD,10.9,11.0,5\n"
+        "KRAKEN,APTUSD,12.0,12.1,5\n");
+
+    am::CryptoArbitrageEngine engine;
+    const auto quotes = engine.load_quotes_csv(qpath, {}, 10.0);
+    std::remove(qpath.c_str());
+
     am::CryptoMonitorConfig cfg;
-    cfg.symbol_filter = "BTCUSD";
-    EXPECT_TRUE(eng.find_opportunities(quotes, cfg).empty());
+    cfg.symbol_filter = "";
+    auto opps = engine.find_opportunities(quotes, cfg);
+
+    EXPECT_EQ(opps.size(), 0u);
 }
 
-TEST(CryptoArbitrage, ThrowsOnBadTimestamp) {
+TEST(CryptoArbitrage, ProfitTrackingUsesBestNetPct) {
+    // Profit mode chooses the highest net_pct and compounds capital in caller loop.
+    const std::string ppath = write_temp_csv("profit_tracking", "");
     am::CryptoArbitrageEngine engine;
-    std::vector<am::CryptoOpportunity> opps(1);
-    auto path = (fs::temp_directory_path() / "out.csv").string();
-    EXPECT_THROW(
-        engine.write_opportunities_csv(path, "bad-timestamp", opps),
-        am::DataValidationError);
+    engine.reset_profit_csv(ppath);
+
+    std::vector<am::CryptoOpportunity> opps;
+    opps.push_back(am::CryptoOpportunity{"XTZUSD", "BINANCE", "KRAKEN", 10.0, 10.3, 0.3, 0.2, 0.02});
+    opps.push_back(am::CryptoOpportunity{"APTUSD", "KRAKEN", "BINANCE", 8.0, 8.1, 0.1, 0.05, 0.00625});
+
+    const double after = engine.append_profit_csv(ppath, "2026-03-12T00:00:00Z", 1000.0, opps);
+    EXPECT_NEAR(after, 1020.0, 1e-9);
+
+    const std::string report = read_file(ppath);
+    EXPECT_EQ(report.find("XTZUSD") != std::string::npos, true);
+    std::remove(ppath.c_str());
+}
+
+TEST(CryptoArbitrage, ProfitTrackingKeepsCapitalWhenNoOpportunities) {
+    const std::string ppath = write_temp_csv("profit_no_opps", "");
+    am::CryptoArbitrageEngine engine;
+    engine.reset_profit_csv(ppath);
+
+    const std::vector<am::CryptoOpportunity> opps;
+    const double after = engine.append_profit_csv(ppath, "2026-03-12T00:00:00Z", 1500.0, opps);
+    EXPECT_NEAR(after, 1500.0, 1e-9);
+
+    const std::string report = read_file(ppath);
+    EXPECT_EQ(report.find(",0,") != std::string::npos, true);
+    std::remove(ppath.c_str());
+}
+
+TEST(CryptoArbitrage, WriteOpportunitiesCsvRequiresValidObservedAt) {
+    // Contract guard for observed_at: no empty or malformed timestamp rows.
+    const std::string path = write_temp_csv("opps_with_timestamp", "");
+    am::CryptoArbitrageEngine engine;
+    std::vector<am::CryptoOpportunity> opps = {
+        {"XTZUSD", "BINANCE", "KRAKEN", 10.0, 10.3, 0.3, 0.2, 0.02},
+    };
+
+    EXPECT_THROW(engine.write_opportunities_csv(path, "", opps), am::DataValidationError);
+    EXPECT_THROW(engine.write_opportunities_csv(path, "not-a-time", opps), am::DataValidationError);
+
+    engine.write_opportunities_csv(path, "2026-03-12T00:00:00Z", opps);
+    const std::string report = read_file(path);
+    EXPECT_EQ(report.find("2026-03-12T00:00:00Z") != std::string::npos, true);
+    EXPECT_EQ(report.find(",XTZUSD,") != std::string::npos, true);
+    std::remove(path.c_str());
 }
