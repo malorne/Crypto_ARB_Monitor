@@ -1,45 +1,77 @@
 #include <gtest/gtest.h>
+
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <string>
+
 #include "config/ConfigManager.h"
 #include "exceptions/Exceptions.h"
-#include <fstream>
-#include <filesystem>
 
-namespace fs = std::filesystem;
+namespace {
 
-static std::string tmp_conf(const std::string& body) {
-    auto p = fs::temp_directory_path() / "am_cfg_test.conf";
-    std::ofstream f(p); f << body;
-    return p.string();
+// Per-test temp file helpers keep tests isolated and parallel-safe.
+std::string make_temp_config_path(const std::string& test_name) {
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto path = std::filesystem::temp_directory_path() /
+                      std::filesystem::path("am_cfg_" + test_name + "_" + std::to_string(stamp) + ".conf");
+    return path.string();
 }
 
-TEST(ConfigManager, ThrowsWhenFileMissing) {
-    am::ConfigManager cfg("/no/such/file.conf");
-    EXPECT_THROW(cfg.load(), am::ConfigError);
+std::string write_temp_config(const std::string& test_name, const std::string& body) {
+    const std::string path = make_temp_config_path(test_name);
+    std::ofstream out(path, std::ios::binary);
+    out << body;
+    out.close();
+    return path;
 }
 
-TEST(ConfigManager, ParsesKeyValue) {
-    auto p = tmp_conf("foo = bar\nbaz = 3.14\n");
-    am::ConfigManager cfg(p); cfg.load();
-    EXPECT_EQ(*cfg.get_string("foo"), "bar");
-    EXPECT_DOUBLE_EQ(*cfg.get_double("baz"), 3.14);
-}
+} // namespace
 
-TEST(ConfigManager, IgnoresComments) {
-    auto p = tmp_conf("# comment\nkey = val\n");
-    am::ConfigManager cfg(p); cfg.load();
-    EXPECT_EQ(*cfg.get_string("key"), "val");
-    EXPECT_FALSE(cfg.get_string("# comment").has_value());
-}
+TEST(ConfigManager, LoadsAndTrimsValues) {
+    // Happy-path config parsing with comments/whitespace.
+    const std::string path = write_temp_config(
+        "loads_and_trims",
+        "# comment\n"
+        " name =   monitor  \n"
+        " fee_bps =  12.5 \n"
+        " enabled = true\n");
 
-TEST(ConfigManager, ParsesBool) {
-    auto p = tmp_conf("a = true\nb = false\n");
-    am::ConfigManager cfg(p); cfg.load();
-    EXPECT_EQ(*cfg.get_bool("a"), true);
-    EXPECT_EQ(*cfg.get_bool("b"), false);
+    am::ConfigManager cfg(path);
+    cfg.load();
+
+    ASSERT_EQ(cfg.get_string("name").has_value(), true);
+    EXPECT_EQ(*cfg.get_string("name"), "monitor");
+    ASSERT_EQ(cfg.get_double("fee_bps").has_value(), true);
+    EXPECT_NEAR(*cfg.get_double("fee_bps"), 12.5, 1e-12);
+    ASSERT_EQ(cfg.get_bool("enabled").has_value(), true);
+    EXPECT_EQ(*cfg.get_bool("enabled"), true);
+
+    std::filesystem::remove(path);
 }
 
 TEST(ConfigManager, ThrowsOnBadDouble) {
-    auto p = tmp_conf("x = notanumber\n");
-    am::ConfigManager cfg(p); cfg.load();
-    EXPECT_THROW(cfg.get_double("x"), am::ConfigError);
+    // Type conversion errors are surfaced as ConfigError, not silently ignored.
+    const std::string path = write_temp_config("bad_double", "fee_bps = nope\n");
+    am::ConfigManager cfg(path);
+    cfg.load();
+
+    EXPECT_THROW((void)cfg.get_double("fee_bps"), am::ConfigError);
+    std::filesystem::remove(path);
+}
+
+TEST(ConfigManager, ThrowsOnBadBool) {
+    const std::string path = write_temp_config("bad_bool", "enabled = maybe\n");
+    am::ConfigManager cfg(path);
+    cfg.load();
+
+    EXPECT_THROW((void)cfg.get_bool("enabled"), am::ConfigError);
+    std::filesystem::remove(path);
+}
+
+TEST(ConfigManager, ThrowsWhenFileMissing) {
+    // Missing files must fail fast to avoid running with accidental defaults.
+    const std::string path = make_temp_config_path("missing");
+    am::ConfigManager cfg(path);
+    EXPECT_THROW(cfg.load(), am::ConfigError);
 }
