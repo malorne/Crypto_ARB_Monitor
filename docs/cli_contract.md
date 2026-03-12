@@ -1,20 +1,41 @@
-# CLI Contract
+# CLI Contract (crypto-only)
+
+Binary: `arbitrage_monitor`
 
 ## Commands
 
-```
-arbitrage_monitor run    [--config <path>]
-arbitrage_monitor watch  [--config <path>] [--interval-sec <n>]
-arbitrage_monitor config [--config <path>]
-```
+- `run [--config <path>] [--online-crypto true|false] [--no-fixtures true|false] [--start-capital <value>]`
+- `watch [--config <path>] [--interval-sec N] [--online-crypto true|false] [--no-fixtures true|false] [--start-capital <value>]`
+- `config [--config <path>] [--online-crypto true|false] [--no-fixtures true|false] [--start-capital <value>]`
 
-## Options
+## Outputs
 
-- `--config <path>` — path to app.conf (default: `config/app.conf`)
-- `--interval-sec <n>` — override `watch_interval_sec` from config
-- Unknown `--` options are rejected with non-zero exit code
+- `crypto_opportunities.csv`
+  - recreated at startup (previous content cleared)
+  - appended on each run/watch iteration
+- `crypto_profit.csv` (if `profit_calc_enabled=true`)
+  - recreated at startup (previous content cleared)
+  - appended on each run/watch iteration
 
-## Exit codes
+## Config keys
 
-- `0` — success
-- `1` — error (config missing, bad option, runtime failure)
+- `crypto_quotes_csv`
+- `crypto_fees_csv`
+- `crypto_output_csv`
+- `profit_output_csv`
+- `crypto_symbol`
+- `crypto_symbols`
+- `crypto_exchanges`
+- `crypto_default_fee_bps`
+- `crypto_min_net_spread`
+- `crypto_min_net_pct`
+- `profit_calc_enabled`
+- `start_capital`
+- `crypto_online_source` (`TRADINGVIEW` or direct API fallback)
+- `online_crypto_enabled`
+- `watch_interval_sec`
+- `no_fixtures`
+
+## Path resolution
+
+Relative paths from config are resolved against the config file directory.
