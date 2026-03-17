@@ -15,7 +15,7 @@ Key outputs:
 
 ---
 
-## My Contributions (Participant Ц — Konstantin Ryadinsky)
+## My Contributions (Konstantin Ryadinsky)
 
 **25 commits** | CLI layer · Error handling · Documentation · CI/CD
 
